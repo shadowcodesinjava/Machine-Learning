@@ -1,0 +1,60 @@
+import numpy as np
+
+# 1. THE ACTIVATION FUNCTION
+# This squishes numbers to be between 0 and 1
+def sigmoid(x):
+    return 1 / (1 + np.exp(-x))
+
+# The derivative of the Sigmoid function
+# This calculates the gradient (the slope) for backpropagation
+def sigmoid_derivative(x):
+    return x * (1 - x)
+
+# 2. THE DATASET
+# Input data (4 examples, 3 neurons each)
+training_inputs = np.array([
+    [0,0,1],
+    [1,1,1],
+    [1,0,1],
+    [0,1,1]
+])
+# Actual outputs (The "Right Answers")
+# We transpose (.T) to make it a column of 4 rows to match inputs
+training_outputs = np.array([[0,1,1,0]]).T
+
+# 3. INITIALIZATION
+# Seed random numbers to get the same result every time you run this
+np.random.seed(1)
+
+# Initialize weights randomly with mean 0
+# We have 3 inputs and 1 output, so we need a 3x1 matrix of weights
+weights = 2 * np.random.random((3,1)) - 1
+
+print("Random Starting Weights:")
+print(weights)
+# 4. THE TRAINING LOOP
+# We will repeat the learning process 20,000 times
+for iteration in range(20000):
+
+    # --- STEP A: FORWARD PROPAGATION ---
+    input_layer = training_inputs
+    # Dot product of inputs and weights, then activation function
+    outputs = sigmoid(np.dot(input_layer, weights))
+
+    # --- STEP B: LOSS CALCULATION ---
+    # How far off are we?
+    error = training_outputs - outputs
+
+    # --- STEP C: BACKPROPAGATION ---
+    # Find how much we missed, times the slope of the sigmoid at the values in outputs
+    adjustments = error * sigmoid_derivative(outputs)
+
+    # Update weights
+    # We use dot product of input_layer.T (transpose) to match matrix dimensions
+    weights += np.dot(input_layer.T, adjustments)
+
+print("\nWeights after training:")
+print(weights)
+
+print("\nOutput After Training:")
+print(outputs)
