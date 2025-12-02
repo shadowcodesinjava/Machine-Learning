@@ -1,0 +1,55 @@
+import tensorflow as tf
+from tensorflow.keras import layers, models
+import matplotlib.pyplot as plt
+
+# 1. Load and Preprocess the Data
+print("Loading MNIST dataset...")
+# MNIST contains 60k training images and 10k testing images of handwritten digits
+(x_train, y_train), (x_test, y_test) = tf.keras.datasets.mnist.load_data()
+
+# Normalize pixel values to be between 0 and 1 (instead of 0-255)
+# This helps the neural network converge faster
+x_train, x_test = x_train / 255.0, x_test / 255.0
+
+print(f"Training data shape: {x_train.shape}")
+print(f"Test data shape: {x_test.shape}")
+
+# 2. Build the Model (Sequential API)
+# A simple Feed-Forward Neural Network (Multi-Layer Perceptron)
+model = models.Sequential([
+    # Flatten: Converts 28x28 2D images into a 1D vector of 784 pixels
+    layers.Flatten(input_shape=(28, 28)),
+    
+    # Hidden Layer: 128 neurons, ReLU activation for non-linearity
+    layers.Dense(128, activation='relu'),
+    
+    # Dropout: Randomly sets 20% of inputs to 0 during training to prevent overfitting
+    layers.Dropout(0.2),
+    
+    # Output Layer: 10 neurons (one for each digit 0-9)
+    # The output is a logit score for each class
+    layers.Dense(10)
+])
+
+# 3. Compile the Model
+loss_fn = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True)
+
+model.compile(optimizer='adam',
+              loss=loss_fn,
+              metrics=['accuracy'])
+
+# 4. Train the Model
+print("\nStarting training...")
+# epochs=5 means the model sees the entire dataset 5 times
+history = model.fit(x_train, y_train, epochs=5)
+
+# 5. Evaluate the Model
+print("\nEvaluating on test data...")
+test_loss, test_acc = model.evaluate(x_test,  y_test, verbose=2)
+
+print(f'\nTest accuracy: {test_acc:.4f}')
+
+# Optional: Make a prediction
+probability_model = tf.keras.Sequential([model, layers.Softmax()])
+predictions = probability_model.predict(x_test[:5])
+print(f"\nPrediction for first test image: {predictions[0].argmax()} (True label: {y_test[0]})")
