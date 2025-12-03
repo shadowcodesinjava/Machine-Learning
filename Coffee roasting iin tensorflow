@@ -1,0 +1,125 @@
+import tensorflow as tf
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense, Normalization
+import numpy as np
+import matplotlib.pyplot as plt
+
+# ==========================================
+# 1. Generate "Coffee Roasting" Data (Replaces load_data())
+# ==========================================
+def make_coffee_data(size=200):
+    rng = np.random.default_rng(2)
+    # Feature 1: Temperature (roughly 150 to 280 degrees Celsius)
+    X_temp = rng.uniform(150, 280, size)
+    # Feature 2: Duration (roughly 10 to 16 minutes)
+    X_time = rng.uniform(10, 16, size)
+    
+    X = np.column_stack((X_temp, X_time))
+    Y = np.zeros(size)
+
+    # Logic: Good roast (1) is a specific "sweet spot" 
+    # Temp between 175-260 AND Duration between 12-15
+    for i in range(size):
+        if (175 < X_temp[i] < 260) and (12 < X_time[i] < 15):
+            Y[i] = 1
+        else:
+            Y[i] = 0
+            
+    return X, Y.reshape(-1, 1)
+
+print("Generating data...")
+X_train, Y_train = make_coffee_data()
+
+print(f"Data shape: {X_train.shape}")
+print(f"Sample input (Temp, Time): {X_train[0]}")
+print(f"Sample label (Good=1/Bad=0): {Y_train[0]}")
+
+# ==========================================
+# 2. Normalization (Crucial Step from the Lab)
+# ==========================================
+# Since Temp (200s) and Time (12s) have very different ranges,
+# we MUST normalize so gradient descent works efficiently.
+print("\nNormalizing data...")
+norm_layer = Normalization(axis=-1)
+norm_layer.adapt(X_train) # Learn mean and variance from data
+
+X_train_norm = norm_layer(X_train)
+
+# ==========================================
+# 3. Build Model (Andrew Ng's Architecture)
+# ==========================================
+tf.random.set_seed(1234)
+
+model = Sequential([
+    # Input layer is implicit in the first Dense layer
+    # Layer 1: 3 neurons, sigmoid activation
+    Dense(units=3, activation='sigmoid', name="layer1"),
+    
+    # Layer 2: 1 neuron, sigmoid activation (Binary Classification)
+    Dense(units=1, activation='sigmoid', name="layer2")
+])
+
+model.compile(
+    loss = tf.keras.losses.BinaryCrossentropy(),
+    optimizer = tf.keras.optimizers.Adam(learning_rate=0.01),
+    metrics=['accuracy']
+)
+
+# ==========================================
+# 4. Train the Model
+# ==========================================
+print("\nTraining model...")
+model.fit(
+    norm_layer(X_train), Y_train, 
+    epochs=1000, 
+    verbose=0 # Suppress noisy output
+)
+print("Training finished.")
+
+# ==========================================
+# 5. Visualize Results (Replaces plt_roast())
+# ==========================================
+# Create a grid of points to visualize the Decision Boundary
+x0_vals = np.linspace(150, 280, 100)
+x1_vals = np.linspace(10, 16, 100)
+X0_grid, X1_grid = np.meshgrid(x0_vals, x1_vals)
+
+# Flatten grid, normalize, and predict
+grid_points = np.c_[X0_grid.ravel(), X1_grid.ravel()]
+grid_points_norm = norm_layer(grid_points)
+predictions = model.predict(grid_points_norm)
+Z = predictions.reshape(X0_grid.shape)
+
+# Plot
+plt.figure(figsize=(8, 6))
+
+# Plot the decision boundary (contour where prediction is 0.5)
+plt.contourf(X0_grid, X1_grid, Z, levels=[0, 0.5, 1], cmap="Blues", alpha=0.3)
+plt.colorbar(label="Prediction Probability")
+
+# Plot original data points
+good_roast = Y_train.flatten() == 1
+bad_roast = Y_train.flatten() == 0
+
+plt.scatter(X_train[good_roast, 0], X_train[good_roast, 1], c='g', marker='x', label="Good Roast")
+plt.scatter(X_train[bad_roast, 0], X_train[bad_roast, 1], c='r', marker='o', label="Bad Roast")
+
+plt.title("Coffee Roasting Decision Boundary")
+plt.xlabel("Temperature (Celsius)")
+plt.ylabel("Duration (Minutes)")
+plt.legend()
+plt.show()
+
+# ==========================================
+# 6. Test a Prediction
+# ==========================================
+# Test: 200 degrees for 13.5 minutes (Should be Good)
+X_test = np.array([[200, 13.5]]) 
+X_test_norm = norm_layer(X_test)
+prediction = model.predict(X_test_norm)
+
+print(f"\nPrediction for Temp=200, Time=13.5: {prediction[0][0]:.4f}")
+if prediction >= 0.5:
+    print("Result: Good Roast! ☕")
+else:
+    print("Result: Bad Roast. ❌")
