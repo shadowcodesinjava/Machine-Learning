@@ -1,0 +1,60 @@
+import pandas as pd
+import re
+import pickle
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.preprocessing import LabelEncoder
+from sklearn.model_selection import train_test_split
+
+# 1. Load Data
+print("Loading data...")
+try:
+    data = pd.read_csv("UpdatedResumeDataSet.csv")
+    print(f"Dataset loaded successfully! Found {len(data)} resumes.")
+except FileNotFoundError:
+    print("Error: CSV file not found. Make sure 'UpdatedResumeDataSet.csv' is in the same folder.")
+    exit()
+
+# 2. Clean Data Function
+def clean_resume(text):
+    text = re.sub(r'http\S+', ' ', text)  # Remove URLs
+    text = re.sub(r'RT|cc', ' ', text)    # Remove RT and cc
+    text = re.sub(r'#\S+', '', text)      # Remove hashtags
+    text = re.sub(r'@\S+', '  ', text)    # Remove mentions
+    text = re.sub(r'[^\w\s]', ' ', text)  # Remove punctuation
+    text = re.sub(r'[^\x00-\x7f]', r' ', text) # Remove non-ASCII
+    text = re.sub(r'\s+', ' ', text)      # Remove extra whitespace
+    return text.lower()
+
+print("Cleaning resumes...")
+data['cleaned_resume'] = data['Resume'].apply(lambda x: clean_resume(str(x)))
+
+# 3. Encode Categories (Convert "Data Science" to Numbers like 1, 2, 3...)
+le = LabelEncoder()
+data['Category_Encoded'] = le.fit_transform(data['Category'])
+
+# 4. Vectorize (Convert Text to Numbers)
+print("Vectorizing text...")
+tfidf = TfidfVectorizer(stop_words='english', max_features=1000) # Keep top 1000 words
+requiredText = data['cleaned_resume'].values
+requiredTarget = data['Category_Encoded'].values
+
+tfidf.fit(requiredText)
+WordFeatures = tfidf.transform(requiredText)
+
+# 5. Train Model (KNN)
+print("Training KNN Model...")
+X_train, X_test, y_train, y_test = train_test_split(WordFeatures, requiredTarget, test_size=0.2, random_state=42)
+
+clf = KNeighborsClassifier(n_neighbors=10) # Look at 5 nearest neighbors
+clf.fit(X_train, y_train)
+
+print(f"Model Accuracy: {clf.score(X_test, y_test):.2f}")
+
+# 6. Save the "Brain" (Pickle the files)
+print("Saving model files...")
+pickle.dump(tfidf, open('tfidf.pkl', 'wb'))
+pickle.dump(clf, open('clf.pkl', 'wb'))
+pickle.dump(le, open('encoder.pkl', 'wb')) # Save the category names decoder
+
+print("✅ Done! You can now run main.py")
